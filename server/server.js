@@ -81,7 +81,7 @@ async function fetchAllFiles(cameraIp, currentPath = '', saveDir) {
         } else {
           await fs.writeFile(localPath, Buffer.from(data));
         }
-        console.log(`Downloaded: ${fileUrl}`);
+        // console.log(`Downloaded: ${fileUrl}`);
       } catch (err) {
         console.warn(`Failed to fetch ${fileUrl}:`, err.message);
       }
@@ -94,6 +94,7 @@ app.get('/download', async (req, res) => {
   if (!cameraIp) {
     return res.status(400).send("cameraIp query parameter is required.");
   }
+  console.log("Download Started for cameraIp:",cameraIp)
   try {
     const baseDir = path.join(__dirname, '..', 'camera-app');
     const saveDir = getUniqueSaveDir(baseDir, cameraIp);

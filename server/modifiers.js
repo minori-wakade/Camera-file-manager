@@ -27,7 +27,7 @@ module.exports = {
       lines[i].includes('t =') &&
       lines[i].includes('window.location.protocol') &&
       lines[i].includes('u.config.ipAddr') &&
-      lines[i].includes('u.config.port')
+      lines[i].includes('u.config.port') 
     ) {
       lines[i] = `        t = (0 === window.location.protocol.indexOf("https") ? "wss://" : "ws://") + "${ip}" + ":50502";`;
       firstChangeMade = true;
@@ -265,7 +265,6 @@ W.attr("download", "image.png");`
     );
   }
 
-  console.warn('Couldnot modify index.html');
   return beautified;
 },
 
