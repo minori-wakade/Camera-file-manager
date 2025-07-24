@@ -76,7 +76,6 @@ module.exports = {
       `W.off("click").on("click", function (e) {
   e.preventDefault();
   const imageUrl = window.location.protocol + "//" + "${ip}" + "/api/v1/image?format=png&decimate=1&cb=" + Math.random();
-  console.log("Downloading image from:", imageUrl);
   fetch(imageUrl)
     .then(response => {
       if (!response.ok) throw new Error("Image fetch failed");
