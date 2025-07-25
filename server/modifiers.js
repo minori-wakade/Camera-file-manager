@@ -14,10 +14,11 @@ module.exports = {
       }
     }
     if (!replaced) {
-      console.warn('Could not modify websockservice.js');
+    console.warn('websockservice.js: Expected `var h =` with protocol logic not found — no changes made.');
     }
     return lines.join('\n');
   },
+
   'wdk.min.js': (content, ip) => {
   const lines = beautifyJs(content).split('\n');
   let firstChangeMade = false;
@@ -45,11 +46,11 @@ module.exports = {
     }
   }
   if (!firstChangeMade) {
-    console.warn(`Could not modify wdk.min.js`);
+    console.warn('wdk.min.js: WebSocket URL line not modified.');
   }
 
   if (!secondChangeMade) {
-    console.warn(`Could not modify wdk.min.js`);
+    console.warn('wdk.min.js: IP and path injection after `u.received = 0` not applied.');
   }
   return lines.join('\n');
 },
@@ -58,61 +59,70 @@ module.exports = {
   const target = 'ajax.post("/api/v1/file/user/settings.json"';
   const replacement = `ajax.post("http://localhost:5000/camera/api/v1/file/user/settings.json?cameraIp=${ip}"`;
   if (!content.includes(target)) {
-    console.warn('Couldnot modify settings.js');
+    console.warn('settings.js: Could not modify ajax.post path.');
     return beautifyJs(content); 
   }
   return beautifyJs(content.split(target).join(replacement));
 },
 
   'mscan-image-ex.js': (content, ip) => {
-  const originalContent = content;
-  const modifiedContent = content
-    .replace(
-      'o.saveLastImageUrl = window.location.protocol + "//" + window.location.hostname + "/api/v1/image?format=png";',
-      `o.saveLastImageUrl = window.location.protocol + "//" + "${ip}" + "/api/v1/image?format=png";`
-    )
-    .replace(
-      'W.attr("href", window.location.protocol + "//" + T.targetIpWithPort + "/api/v1/image?format=png&cb=" + Math.random());',
-      `W.off("click").on("click", function (e) {
-  e.preventDefault();
-  const imageUrl = window.location.protocol + "//" + "${ip}" + "/api/v1/image?format=png&decimate=1&cb=" + Math.random();
-  fetch(imageUrl)
-    .then(response => {
-      if (!response.ok) throw new Error("Image fetch failed");
-      return response.blob();
-    })
-    .then(blob => {
-      const downloadUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = "image.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(downloadUrl);
-    })
-    .catch(error => {
-      alert("Download failed: " + error.message);
-    });
-});`
-    )
-    .replace(
-      'W.attr("href", window.location.protocol + "//" + T.targetIpWithPort + "/api/v1/image?format=png&cb=" + Math.random());',
-      `W.attr("href", window.location.protocol + "//" + "${ip}" + "/api/v1/image?format=png&cb=" + Math.random());
-W.attr("download", "image.png");`
-    );
-  if (modifiedContent === originalContent) {
-    console.warn('Couldnot modify mscan-image-ex.js');
-  }
-  return beautifyJs(modifiedContent);
-},
+    let modified = false;
+    let modifiedContent = content;
+
+    const r1 = 'o.saveLastImageUrl = window.location.protocol + "//" + window.location.hostname + "/api/v1/image?format=png";';
+    const r1Replacement = `o.saveLastImageUrl = window.location.protocol + "//" + "${ip}" + "/api/v1/image?format=png";`;
+    if (modifiedContent.includes(r1)) {
+      modifiedContent = modifiedContent.replace(r1, r1Replacement);
+      modified = true;
+    }
+
+    const r2 = 'W.attr("href", window.location.protocol + "//" + T.targetIpWithPort + "/api/v1/image?format=png&cb=" + Math.random());';
+    const r2Replacement = `W.off("click").on("click", function (e) {
+    e.preventDefault();
+    const imageUrl = window.location.protocol + "//" + "${ip}" + "/api/v1/image?format=png&decimate=1&cb=" + Math.random();
+    fetch(imageUrl)
+      .then(response => {
+        if (!response.ok) throw new Error("Image fetch failed");
+        return response.blob();
+      })
+      .then(blob => {
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = "image.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+      })
+      .catch(error => {
+        alert("Download failed: " + error.message);
+      });
+      });`;
+    if (modifiedContent.includes(r2)) {
+      modifiedContent = modifiedContent.replace(r2, r2Replacement);
+      modified = true;
+    }
+
+    const r3 = 'W.attr("href", window.location.protocol + "//" + T.targetIpWithPort + "/api/v1/image?format=png&cb=" + Math.random());';
+    const r3Replacement = `W.attr("href", window.location.protocol + "//" + "${ip}" + "/api/v1/image?format=png&cb=" + Math.random());
+    W.attr("download", "image.png");`;
+    if (modifiedContent.includes(r3)) {
+      modifiedContent = modifiedContent.replace(r3, r3Replacement);
+      modified = true;
+    }
+    if (!modified) {
+      console.warn('Could not modify mscan-image-ex.js');
+    }
+    return beautifyJs(modifiedContent);
+  },
 
   'reader-setup-service.js': (content, ip) => {
     const funcName = 'getAppModes';
     const funcStart = `${funcName}: function`;
     const startIndex = content.indexOf(funcStart);
     if (startIndex === -1) {
-    console.warn(`Could not modify reader-setup-service.js`);
+    console.warn(`reader-setup-service.js: ${funcName} not found.`);
     return content;
   }
     let i = startIndex;
@@ -134,7 +144,10 @@ W.attr("download", "image.png");`
       i++;
     }
 
-    if (endIndex === -1) return content;
+    if (endIndex === -1) {
+      console.warn(`[WARN] Skipped reader-setup-service.js – ${funcName} incomplete.`);
+      return content;
+    }
 
     const before = content.slice(0, startIndex);
     const after = content.slice(endIndex + 1);
@@ -223,17 +236,17 @@ W.attr("download", "image.png");`
 
     newLines.push(line);
 
-    if (insideSaveFile && line.includes('g.saveLocal(JSON.stringify(l), u)')) {
+    if (insideSaveFile && line.includes('g.saveLocal') && !saveModified) {
       newLines.push(`        sendCommandToReceiver("File saved: " + u, "${ip}");`);
       saveModified = true;
     }
 
-    if (insideReadFile && line.trim().startsWith('var a = n.data')) {
+    if (insideReadFile && line.includes('var a = n.data') && !readModified) {
       newLines.push(`        sendCommandToReceiver("File loaded: " + e.files[0].name, "${ip}");`);
       readModified = true;
     }
 
-    if (insideOnok && line.includes('c.selectPage("setup")')) {
+    if (insideOnok && line.includes('c.selectPage("setup")') && !onokModified) {
       newLines.push(`        sendCommandToReceiver("New setup launched", "${ip}");`);
       onokModified = true;
     }
@@ -244,9 +257,11 @@ W.attr("download", "image.png");`
       insideOnok = false;
     }
   }
-  if (!saveModified) console.warn("Warning: saveFile function not modified.");
-  if (!readModified) console.warn("Warning: readFile function not modified.");
-  if (!onokModified) console.warn("Warning: onok function not modified.");
+
+  if (!saveModified) console.warn("⚠️ saveFile() not modified");
+  if (!readModified) console.warn("⚠️ readFile() not modified");
+  if (!onokModified) console.warn("⚠️ onok() not modified");
+
   return newLines.join('\n');
 },
 
@@ -358,20 +373,33 @@ W.attr("download", "image.png");`
 
   let braceCount = 0;
 
+  let replacedUnload = false;
+  let injectedCmdsLog = false;
+  let handledLanguageBlock = false;
+  let helpJaReplaced = false;
+  let helpEnReplaced = false;
+
+  // Remove help directory block
   const joined = lines.join('\n');
   const cleaned = joined.replace(
     /,\s*s\.getDirectory\(["']\/help["'],\s*function\(t\)\s*{\s*e\.showHelp\s*=\s*t\.length\s*>\s*0\s*}\),/g,
     ','
   );
+  if (cleaned === joined) {
+    console.warn("app.js: Help directory block removal not detected.");
+  } else {
+    removedHelpDirectory = true;
+  }
 
   const modifiedLines = cleaned.split('\n');
   for (let i = 0; i < modifiedLines.length; i++) {
     let line = modifiedLines[i];
 
+    //Replace window.onunload with window.onbeforeunload
     if (line.includes('window.onunload = function()')) {
       line = line.replace('window.onunload = function()', 'window.onbeforeunload = function()');
+      replacedUnload = true;
     }
-
     if (line.includes('function s(t, a)')) {
       insideSFunction = true;
       braceCount = 0;
@@ -384,7 +412,9 @@ W.attr("download", "image.png");`
 
       newLines.push(line);
 
+      //Inject sendCommandToReceiver block
       if (line.includes('console.log(e.cmdsAdded + " parameter editors added")')) {
+        injectedCmdsLog = true;
         newLines.push(
           `        (function() {`,
           `          var injector = angular.element(document.body).injector();`,
@@ -404,6 +434,7 @@ W.attr("download", "image.png");`
       continue;
     }
 
+     // Handle language block
     if (line.includes('a.getJson("WebLink/language-list.json"')) {
       insideLanguageBlock = true;
       braceCount = 0;
@@ -416,6 +447,7 @@ W.attr("download", "image.png");`
 
       if (braceCount <= 0) {
         insideLanguageBlock = false;
+        handledLanguageBlock = true;
         newLines.push(
           `    },$.ajax({`,
           `      url: "http://localhost:5000/camera/WebLink/language-list.json?cameraIp=${ip}",`,
@@ -444,19 +476,33 @@ W.attr("download", "image.png");`
       }
       continue;
     }
+
+    //Replace help URLs
     if (line.includes('e.openHelp = function(')) {
       insideOpenHelp = true;
     }
     if (insideOpenHelp) {
       if (line.includes('window.open("/help/ja/index.htm"')) {
         line = `                window.open("http://${ip}/help/ja/index.htm", "WebLink Help", "_blank");`;
+        helpJaReplaced = true;
       } else if (line.includes('window.open("/help/en/index.htm"')) {
         line = `                window.open("http://${ip}/help/en/index.htm", "WebLink Help", "_blank");`;
+        helpEnReplaced = true;
       }
     }
-
     newLines.push(line);
   }
+  if (!replacedUnload) {
+    console.warn("app.js: Did not replace 'window.onunload' with 'window.onbeforeunload'.");
+  }
+  if (!injectedCmdsLog) {
+    console.warn('app.js: Did not inject sendCommandToReceiver after "parameter editors added" log.');
+  }
+  if (!handledLanguageBlock) {
+    console.warn("app.js: Did not insert override for language-list.json.");
+  }
+  if (!helpJaReplaced) console.warn("app.js: Did not update help JA URL.");
+  if (!helpEnReplaced) console.warn("app.js: Did not update help EN URL.");
   return newLines.join('\n');
 },
 
